@@ -3,14 +3,14 @@ function myFunction() {
   // track when this script was executed
   logTriggerStart()
 
-  var companyName = "<Your G Suite Company Name>"
+  var companyName = "Traveloka Calendar"
 
   // change to `true` for the first run to create a new tracking spreadsheet
   // otherwise leave this conditional check set to `false`
   if (false) { createSpreadsheet(companyName); return }
 
   // set your personal google account id (i.e. your personal google account email)
-  var personalGoogleAccountID = "<your.name>@gmail.com"
+  var personalGoogleAccountID = "auliarshad@gmail.com"
 
   // acquire a reference to your personal google account calendar
   var personalCalendar = CalendarApp.getCalendarById(personalGoogleAccountID)
@@ -21,20 +21,22 @@ function myFunction() {
 
   // we'll be looking at syncing events for today
   var today = new Date()
-
+  var endDate = new Date()
+  endDate.setDate(today.getDate() + 3)
   // Uncomment following line if you want to test this script for a day in the future
   // today.setDate(today.getDate() + 1)
 
-  var gSuiteEvents = gSuiteCalendar.getEventsForDay(today)
+  var gSuiteEvents = gSuiteCalendar.getEvents(today, endDate)
   var trackGSuiteEvents = {}
 
   gSuiteEvents.forEach(function(event){
     // logEvents(event)
-    trackGSuiteEvents[event.getId()] = event
+    Logger.log("Event title: %s - %s - %s", event.getTitle(), event.getStartTime(), event.isRecurringEvent())
+    trackGSuiteEvents[event.getId() + event.getStartTime()] = event
   })
-
+  Logger.log("Event ID luar: %s", trackGSuiteEvents)
   // id of spreadsheet (needed to track calendar events)
-  var sheetID = "<your_spreadsheet_id>"
+  var sheetID = "1TUkI5MW6Q97gUUYhzGn01_NdOy3fXaTkRk6Og9d2WQo"
   var sheet = SpreadsheetApp.openById(sheetID)
 
   // acquire data from spreadsheet
@@ -43,12 +45,14 @@ function myFunction() {
 
   // only bother to execute the following code if our spreadsheet has some tracked events
   if (rows.length > 1) {
+    
     checkForEventUpdates(rows, trackGSuiteEvents, personalCalendar, personalGoogleAccountID, sheet, companyName)
 
     // don't proceed further
     return
   }
-
+  
+ 
   // no tracked events were found in our spreadsheet, so let's start tracking them...
   generateEvents(trackGSuiteEvents, personalCalendar, personalGoogleAccountID, sheet, companyName)
 }
@@ -88,7 +92,7 @@ function checkForEventUpdates(rows, trackGSuiteEvents, personalCalendar, persona
         markOldEvents(row, oldEvents, sheet, index)
 
         // assign descriptive names to our spreadsheet data
-        var spreadsheet_gsuite_event_id = row[0]
+        var spreadsheet_gsuite_event_id = row[0] + row[3]
         var spreadsheet_personal_event_id = row[1]
         var spreadsheet_gsuite_event_title = row[2]
         var spreadsheet_gsuite_event_start = row[3]
@@ -139,6 +143,7 @@ function checkForEventUpdates(rows, trackGSuiteEvents, personalCalendar, persona
     // if we didn't find the current event, then create it
     if (!event_found) {
       filtered_event_object = {}
+      Logger.log("ada yang ga nemu niuh")
       filtered_event_object[current_event_id] = trackGSuiteEvents[current_event_id]
       generateEvents(filtered_event_object, personalCalendar, personalGoogleAccountID, sheet)
     }
@@ -153,14 +158,16 @@ function checkForEventUpdates(rows, trackGSuiteEvents, personalCalendar, persona
 
 function markOldEvents(row, oldEvents, sheet, index) {
   var today = new Date()
+  var now = today.getTime()
 
   // Uncomment following line if you want to test this script for a day in the future
   // today.setDate(today.getDate() + 1)
-
-  var storedDay = new Date(row[3])
+  
+  Logger.log("Event row: %s", row)
+  var storedDay = new Date(row[4])
 
   // if the current event doesn't match today's date, then mark it for deletion
-  if (storedDay.getDate() != today.getDate()) {
+  if (storedDay.getTime() < now) {
     // to avoid marking the same row number multiple times we first check for it
     if (oldEvents.indexOf(index+1) == -1) {
       oldEvents.push(index+1)
@@ -184,6 +191,7 @@ function updateDate(personalCalendar, index, sheet, event_start, event_end) {
 
 function generateEvents(untrackedEvents, personalCalendar, personalGoogleAccountID, sheet, companyName) {
   // take incoming event object and generate a copy of the events within our personal google calendar
+  Logger.log("Event ID dalam: %s", untrackedEvents)
   for (var eventID in untrackedEvents) {
     var event = untrackedEvents[eventID]
     var startTime = new Date(event.getStartTime())
@@ -193,13 +201,13 @@ function generateEvents(untrackedEvents, personalCalendar, personalGoogleAccount
     var newPersonalEvent = personalCalendar.createEvent(eventTitle, startTime, endTime, {description: eventDescription})
 
     // track this new event in our spreadsheet so we can check in future for any changes made to it
-    sheet.appendRow([event.getId(), newPersonalEvent.getId(), eventTitle, startTime])
+    sheet.appendRow([event.getId(), newPersonalEvent.getId(), eventTitle, startTime, endTime])
 
-    var body = "Title: " + eventTitle + "\n\nStarts: " + startTime + "\nEnds: " + endTime + "\n\nDescription:\n" + eventDescription
+    //var body = "Title: " + eventTitle + "\n\nStarts: " + startTime + "\nEnds: " + endTime + "\n\nDescription:\n" + eventDescription
 
     // send an email to let your personal google account know about the new event added
-    var subject = "Event from your " + companyName + " account has been synced"
-    GmailApp.sendEmail(personalGoogleAccountID, subject, removeBadSyntax(body))
+    //var subject = "Event from your " + companyName + " account has been synced"
+    //GmailApp.sendEmail(personalGoogleAccountID, subject, removeBadSyntax(body))
   }
 }
 
